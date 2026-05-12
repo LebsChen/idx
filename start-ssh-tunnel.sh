@@ -1,7 +1,7 @@
 #!/bin/sh
 set -e
 
-echo l] Starting SSH tunnel setup..."
+echo "[tunnel] Starting SSH tunnel setup..."
 
 RELAY_HOST="117.31.178.161"
 RELAY_PORT="2222"
