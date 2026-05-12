@@ -36,7 +36,7 @@ print_status() {
         "INFO") echo -e "${BLUE}[INFO]${NC} $message" ;;
         "WARN") echo -e "${YELLOW}[WARN]${NC} $message" ;;
         "ERROR") echo -e "${RED}[ERROR]${NC} $message" ;;
-        "SUCCESS") echo -e "${N}[SUCCESS]${NC} $message" ;;
+        "SUCCESS") echo -e "${GREEN}[SUCCESS]${NC} $message" ;;
     esac
 }
 
