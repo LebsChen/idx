@@ -20,7 +20,7 @@
     previews = {
       previews = {
         web = {
-          command = [ "ttyd" "-p" "$PORT" "bash" ];
+          command = [ "ttyd" "-W" "-p" "$PORT" "bash" ];
           manager = "web";
         };
       };
