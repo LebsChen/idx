@@ -7,8 +7,8 @@ echo "[tunnel] Starting SSH tunnel setup..."
 RELAY_HOST="idx.yaoshen.de5.net"
 RELAY_PORT="2222"
 RELAY_USER="app"
-REMOTE_PORT="2224"
-LOCAL_SSH_PORT="22"
+REMOTE_PORT="${REMOTE_PORT:-2002}"
+LOCAL_SSH_PORT="${LOCAL_SSH_PORT:-2222}"
 
 # 1. Setup SSH directory
 mkdir -p ~/.ssh
@@ -45,7 +45,19 @@ fi
 
 # 5. Start sshd
 echo "[tunnel] Starting sshd on port $LOCAL_SSH_PORT..."
-nohup /usr/bin/sshd -D -p $LOCAL_SSH_PORT \
+SSHD_BIN="$(command -v sshd || true)"
+if [ -z "$SSHD_BIN" ]; then
+    echo "[tunnel] ❌ sshd not found"
+    exit 1
+fi
+
+if [ -f ~/.ssh/sshd.pid ] && ps -p "$(cat ~/.ssh/sshd.pid)" > /dev/null 2>&1; then
+    echo "[tunnel] Existing sshd found, stopping it..."
+    kill "$(cat ~/.ssh/sshd.pid)" 2>/dev/null || true
+    sleep 1
+fi
+
+nohup "$SSHD_BIN" -D -p $LOCAL_SSH_PORT \
     -o ListenAddress=127.0.0.1 \
     -o HostKey=~/.ssh/sshd/ssh_host_ed25519_key \
     -o PermitRootLogin=no \
@@ -67,6 +79,7 @@ nohup ssh -N -R "127.0.0.1:$REMOTE_PORT:127.0.0.1:$LOCAL_SSH_PORT" \
     -o UserKnownHostsFile=/dev/null \
     -o ServerAliveInterval=30 \
     -o ServerAliveCountMax=3 \
+    -o ExitOnForwardFailure=yes \
     -p "$RELAY_PORT" \
     "$RELAY_USER@$RELAY_HOST" \
     > ~/.ssh/tunnel.log 2>&1 &
