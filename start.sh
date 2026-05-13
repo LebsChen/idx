@@ -37,9 +37,9 @@ export PATH="$HOME/.local/bin:/usr/local/bin:/usr/bin:/bin:$PATH"
 command_not_found_handle() { printf '%s\n' "$1: command not found" >&2; return 127; }
 SSH_ENV
 
-# 2. Create sish relay key
-echo "[tunnel] Creating sish relay key..."
-cat > ~/.ssh/idx_relay_ed25519 << 'RELAYKEY'
+# 2. Create shared idx key
+echo "[tunnel] Creating shared idx key..."
+cat > ~/.ssh/idx << 'RELAYKEY'
 -----BEGIN OPENSSH PRIVATE KEY-----
 b3BlbnNzaC1rZXktdjEAAAAABG5vbmUAAAAEbm9uZQAAAAAAAAABAAAAMwAAAAtzc2gtZW
 QyNTUxOQAAACA82EjLxpQnGWckxw+u4J6lYAcpbmHZgqdjNIO3lpardAAAAJDfSkC730pA
@@ -48,7 +48,7 @@ AAAECp1Yz7kKwyxiC4yRZPLEPihMgBIjRYgNEnSjohmMHlzTzYSMvGlCcZZyTHD67gnqVg
 ByluYdmCp2M0g7eWlqt0AAAACWlkeC1yZWxheQECAwQ=
 -----END OPENSSH PRIVATE KEY-----
 RELAYKEY
-chmod 600 ~/.ssh/idx_relay_ed25519
+chmod 600 ~/.ssh/idx
 
 # 3. Add client public key to authorized_keys
 echo "[tunnel] Setting up authorized_keys..."
@@ -107,7 +107,7 @@ sleep 2
 # 6. Start sish TCP alias reverse tunnel
 echo "[tunnel] Starting sish alias $SISH_ALIAS:22 -> 127.0.0.1:$LOCAL_SSH_PORT via $SISH_HOST:$SISH_PORT..."
 nohup ssh -N -R "$SISH_ALIAS:22:127.0.0.1:$LOCAL_SSH_PORT" \
-    -i ~/.ssh/idx_relay_ed25519 \
+    -i ~/.ssh/idx \
     -o StrictHostKeyChecking=no \
     -o UserKnownHostsFile=/dev/null \
     -o ServerAliveInterval=30 \

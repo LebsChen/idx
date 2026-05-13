@@ -25,7 +25,7 @@ ssh -J user@117.31.178.161:2022 user@default-13412936
 ## Bootstrap
 
 The workspace automatically:
-1. Writes the sish relay SSH key to `~/.ssh/idx_relay_ed25519`
+1. Writes the sish shared idx SSH key to `~/.ssh/idx`
 2. Starts local `sshd` on `127.0.0.1:2222`
 3. Starts a sish TCP alias tunnel to `117.31.178.161:2022`
 4. Exposes local SSH as sish alias `default-13412936:22`
@@ -47,7 +47,7 @@ Host idx.yaoshen.de5.net
   HostName 117.31.178.161
   Port 2022
   User user
-  IdentityFile ~/.ssh/idx_relay_ed25519
+  IdentityFile ~/.ssh/idx
   StrictHostKeyChecking no
   UserKnownHostsFile /dev/null
 
