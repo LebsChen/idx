@@ -141,4 +141,5 @@ fi
 
 echo "[tunnel] Setup complete!"
 echo "[tunnel] sish: $SISH_USER@$SISH_HOST:$SISH_PORT -> alias $SISH_ALIAS:22 -> 127.0.0.1:$LOCAL_SSH_PORT"
-printf '%s\n' "[tunnel] client: ssh -J $SISH_USER@$SISH_HOST:$SISH_PORT user@$SISH_ALIAS"
+printf '%s\n' "[tunnel] client explicit: ssh -J $SISH_USER@$SISH_HOST:$SISH_PORT user@$SISH_ALIAS"
+printf '%s\n' "[tunnel] client with ssh config: ssh -J idx.yaoshen.de5.net:$SISH_PORT $SISH_ALIAS"

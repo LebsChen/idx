@@ -4,28 +4,43 @@ This workspace automatically sets up an SSH reverse tunnel to a relay server.
 
 ## Connection
 
+Recommended client UX after adding SSH config:
+
 ```bash
-ssh -J idx-relay@idx.yaoshen.de5.net:2022 user@default-13412936
+ssh -J idx.yaoshen.de5.net:2022 default-13412936
+```
+
+Or, if `Port 2022` is set in the `Host idx.yaoshen.de5.net` block:
+
+```bash
+ssh -J idx.yaoshen.de5.net default-13412936
+```
+
+Without SSH config, use the explicit form:
+
+```bash
+ssh -J idx-relay@117.31.178.161:2022 user@default-13412936
 ```
 
 ## Bootstrap
 
 The workspace automatically:
-1. Fetches the relay SSH key from `https://idx.yaoshen.de5.net/bootstrap/relay_ed25519`
-2. Starts a sish TCP alias tunnel to `117.31.178.161:2022`
-3. Exposes local SSH (`127.0.0.1:2222`) as sish alias `default-13412936:22`
+1. Writes the sish relay SSH key to `~/.ssh/idx_relay_ed25519`
+2. Starts local `sshd` on `127.0.0.1:2222`
+3. Starts a sish TCP alias tunnel to `117.31.178.161:2022`
+4. Exposes local SSH as sish alias `default-13412936:22`
 
 ## Logs
 
 Check tunnel status:
 ```bash
-cat ~/.ssh/tunnel.log
+cat ~/.ssh/sish.log
 ps aux | grep ssh
 ```
 
 ## Optional SSH config
 
-Add this to `~/.ssh/config` if you want the short form `ssh -J idx.yaoshen.de5.net default-13412936`. The Host alias is named `idx.yaoshen.de5.net`, but it currently points to the working sish IP `117.31.178.161:2022`.
+Add this to `~/.ssh/config` if you want official-style short commands:
 
 ```sshconfig
 Host idx.yaoshen.de5.net
@@ -43,14 +58,9 @@ Host default-13412936
   UserKnownHostsFile /dev/null
 ```
 
-Then connect with:
+Then either of these works:
 
 ```bash
+ssh -J idx.yaoshen.de5.net:2022 default-13412936
 ssh -J idx.yaoshen.de5.net default-13412936
-```
-
-Without SSH config, use the explicit form:
-
-```bash
-ssh -J idx-relay@117.31.178.161:2022 user@default-13412936
 ```
