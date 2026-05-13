@@ -19,7 +19,7 @@ ssh -J idx.yaoshen.de5.net default-13412936
 Without SSH config, use the explicit form:
 
 ```bash
-ssh -J idx-relay@117.31.178.161:2022 user@default-13412936
+ssh -J user@117.31.178.161:2022 user@default-13412936
 ```
 
 ## Bootstrap
@@ -46,7 +46,7 @@ Add this to `~/.ssh/config` if you want official-style short commands:
 Host idx.yaoshen.de5.net
   HostName 117.31.178.161
   Port 2022
-  User idx-relay
+  User user
   IdentityFile ~/.ssh/idx_relay_ed25519
   StrictHostKeyChecking no
   UserKnownHostsFile /dev/null
