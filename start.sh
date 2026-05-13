@@ -4,22 +4,18 @@ set -e
 SISH_HOST="${SISH_HOST:-117.31.178.161}"
 SISH_PORT="${SISH_PORT:-2022}"
 SISH_USER="${SISH_USER:-user}"
-# Derive workspace alias from multiple IDX env sources
+# Derive workspace alias from IDX environment
 _get_ws_name() {
-    # 1. explicit env var
-    [ -n "$GOOGLE_CLOUD_WORKSTATION_NAME" ] && echo "$GOOGLE_CLOUD_WORKSTATION_NAME" && return
-    # 2. extract from CLOUD_WORKSTATIONS_AGENT_ENDPOINT URL (e.g. https://default-87265950.cluster-xxx...)
-    _ep="${CLOUD_WORKSTATIONS_AGENT_ENDPOINT:-}"
-    if [ -n "$_ep" ]; then
-        _name=$(echo "$_ep" | sed 's|https\?://||' | cut -d. -f1)
-        [ -n "$_name" ] && echo "$_name" && return
-    fi
+    # 1. WORKSPACE_SLUG - IDX native, most reliable (used in PS1)
+    [ -n "${WORKSPACE_SLUG:-}" ] && echo "$WORKSPACE_SLUG" && return
+    # 2. GOOGLE_CLOUD_WORKSTATION_NAME
+    [ -n "${GOOGLE_CLOUD_WORKSTATION_NAME:-}" ] && echo "$GOOGLE_CLOUD_WORKSTATION_NAME" && return
     # 3. /proc/1/environ
-    _name=$(cat /proc/1/environ 2>/dev/null | tr '\0' '\n' | grep '^GOOGLE_CLOUD_WORKSTATION_NAME=' | cut -d= -f2-)
+    _name=$(cat /proc/1/environ 2>/dev/null | tr '\0' '\n' | grep '^WORKSPACE_SLUG=' | cut -d= -f2-)
     [ -n "$_name" ] && echo "$_name" && return
     # 4. hostname / /etc/hostname
     _h=$(cat /etc/hostname 2>/dev/null | tr -d '[:space:]')
-    [ -z "$_h" ] && _h=$(hostname 2>/dev/null)
+    [ -z "$_h" ] && _h=$(hostname 2>/dev/null || true)
     echo "$_h"
 }
 SISH_ALIAS="${SISH_ALIAS:-$(_get_ws_name)}"
