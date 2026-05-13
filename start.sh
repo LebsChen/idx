@@ -5,7 +5,7 @@ echo "[tunnel] Starting SSH tunnel setup (sish alias mode)..."
 
 # sish TCP alias config. This creates an internal alias, not a public TCP port.
 # Client example:
-# ssh -o 'ProxyCommand=ssh -i relay_ed25519 -p 2022 -W %h:%p idx-relay@117.31.178.161' user@default-13412936
+# ssh -J idx-relay@117.31.178.161:2022 user@default-13412936
 SISH_HOST="${SISH_HOST:-117.31.178.161}"
 SISH_PORT="${SISH_PORT:-2022}"
 SISH_USER="${SISH_USER:-idx-relay}"
@@ -141,4 +141,4 @@ fi
 
 echo "[tunnel] Setup complete!"
 echo "[tunnel] sish: $SISH_USER@$SISH_HOST:$SISH_PORT -> alias $SISH_ALIAS:22 -> 127.0.0.1:$LOCAL_SSH_PORT"
-printf '%s\n' "[tunnel] client: ssh -o 'ProxyCommand=ssh -i relay_ed25519 -p $SISH_PORT -W %h:%p $SISH_USER@$SISH_HOST' user@$SISH_ALIAS"
+printf '%s\n' "[tunnel] client: ssh -J $SISH_USER@$SISH_HOST:$SISH_PORT user@$SISH_ALIAS"
