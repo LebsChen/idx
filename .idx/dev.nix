@@ -9,8 +9,12 @@
     workspace = {
       onCreate = {
         setup-ssh = ''
-          echo "[onCreate] Setting up SSH tunnel..."
           chmod +x ./start.sh
+        '';
+      };
+      onStart = {
+        setup-ssh = ''
+          echo "[onStart] Starting SSH tunnel..."
           ./start.sh
         '';
       };
