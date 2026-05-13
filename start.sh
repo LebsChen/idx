@@ -1,13 +1,15 @@
 #!/bin/sh
 set -e
 
-echo "[tunnel] Starting SSH tunnel setup..."
+echo "[tunnel] Starting SSH tunnel setup (sish alias mode)..."
 
-# 配置（使用域名）
-RELAY_HOST="idx.yaoshen.de5.net"
-RELAY_PORT="2222"
-RELAY_USER="app"
-REMOTE_PORT="${REMOTE_PORT:-2002}"
+# sish TCP alias config. This creates an internal alias, not a public TCP port.
+# Client example:
+# ssh -o 'ProxyCommand=ssh -i relay_ed25519 -p 2022 -W %h:%p idx-relay@117.31.178.161' user@default-13412936
+SISH_HOST="${SISH_HOST:-117.31.178.161}"
+SISH_PORT="${SISH_PORT:-2022}"
+SISH_USER="${SISH_USER:-idx-relay}"
+SISH_ALIAS="${SISH_ALIAS:-default-13412936}"
 LOCAL_SSH_PORT="${LOCAL_SSH_PORT:-2222}"
 
 # 1. Setup SSH directory and user bin
@@ -26,10 +28,7 @@ chmod +x ~/.local/bin/hostname
 IDX_HELPER_PATH="$HOME/.local/bin:/usr/local/bin:/usr/bin:/bin"
 export PATH="$IDX_HELPER_PATH:$PATH"
 if ! grep -q 'HOME/.local/bin' ~/.bashrc 2>/dev/null; then
-    printf '
-# IDX SSH tunnel helpers
-export PATH="$HOME/.local/bin:$PATH"
-' >> ~/.bashrc
+    printf '\n# IDX SSH tunnel helpers\nexport PATH="$HOME/.local/bin:$PATH"\n' >> ~/.bashrc
 fi
 
 # SSH remote commands may skip ~/.bashrc. Use sshd SetEnv below to force this.
@@ -38,8 +37,8 @@ export PATH="$HOME/.local/bin:/usr/local/bin:/usr/bin:/bin:$PATH"
 command_not_found_handle() { printf '%s\n' "$1: command not found" >&2; return 127; }
 SSH_ENV
 
-# 2. Create relay key
-echo "[tunnel] Creating relay key..."
+# 2. Create sish relay key
+echo "[tunnel] Creating sish relay key..."
 cat > ~/.ssh/idx_relay_ed25519 << 'RELAYKEY'
 -----BEGIN OPENSSH PRIVATE KEY-----
 b3BlbnNzaC1rZXktdjEAAAAABG5vbmUAAAAEbm9uZQAAAAAAAAABAAAAMwAAAAtzc2gtZW
@@ -49,15 +48,13 @@ AAAECp1Yz7kKwyxiC4yRZPLEPihMgBIjRYgNEnSjohmMHlzTzYSMvGlCcZZyTHD67gnqVg
 ByluYdmCp2M0g7eWlqt0AAAACWlkeC1yZWxheQECAwQ=
 -----END OPENSSH PRIVATE KEY-----
 RELAYKEY
-
 chmod 600 ~/.ssh/idx_relay_ed25519
 
 # 3. Add client public key to authorized_keys
 echo "[tunnel] Setting up authorized_keys..."
-cat >> ~/.ssh/authorized_keys << 'CLIENTKEY'
+grep -qxF 'ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAICAEHT0QGPuonqX29Dwbyz+mul3/fBO8ej/4eHaFTvFj openclaw-idx-client' ~/.ssh/authorized_keys 2>/dev/null || cat >> ~/.ssh/authorized_keys << 'CLIENTKEY'
 ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAICAEHT0QGPuonqX29Dwbyz+mul3/fBO8ej/4eHaFTvFj openclaw-idx-client
 CLIENTKEY
-
 chmod 600 ~/.ssh/authorized_keys
 
 # 4. Generate sshd host key
@@ -67,8 +64,8 @@ if [ ! -f ~/.ssh/sshd/ssh_host_ed25519_key ]; then
     ssh-keygen -t ed25519 -f ~/.ssh/sshd/ssh_host_ed25519_key -N '' -C "idx-workspace-host-key"
 fi
 
-# 5. Start sshd
-echo "[tunnel] Starting sshd on port $LOCAL_SSH_PORT..."
+# 5. Start local sshd
+echo "[tunnel] Starting local sshd on 127.0.0.1:$LOCAL_SSH_PORT..."
 SSHD_BIN="$(command -v sshd || true)"
 if [ -z "$SSHD_BIN" ]; then
     echo "[tunnel] ❌ sshd not found"
@@ -82,58 +79,66 @@ fi
 if [ -f ~/.ssh/tunnel.pid ]; then
     kill "$(cat ~/.ssh/tunnel.pid)" 2>/dev/null || true
 fi
+if [ -f ~/.ssh/sish.pid ]; then
+    kill "$(cat ~/.ssh/sish.pid)" 2>/dev/null || true
+fi
 pkill -f "sshd.*127.0.0.1.*$LOCAL_SSH_PORT" 2>/dev/null || true
-pkill -f "127.0.0.1:$REMOTE_PORT:127.0.0.1:$LOCAL_SSH_PORT" 2>/dev/null || true
+pkill -f "127.0.0.1:.*:127.0.0.1:$LOCAL_SSH_PORT" 2>/dev/null || true
+pkill -f "$SISH_ALIAS:22:127.0.0.1:$LOCAL_SSH_PORT" 2>/dev/null || true
 sleep 1
 
-nohup "$SSHD_BIN" -D -p $LOCAL_SSH_PORT \
+nohup "$SSHD_BIN" -D -p "$LOCAL_SSH_PORT" \
     -o ListenAddress=127.0.0.1 \
-    -o HostKey=~/.ssh/sshd/ssh_host_ed25519_key \
+    -o HostKey="$HOME/.ssh/sshd/ssh_host_ed25519_key" \
     -o PermitRootLogin=no \
     -o PasswordAuthentication=no \
     -o PubkeyAuthentication=yes \
-    -o AuthorizedKeysFile=~/.ssh/authorized_keys \
-    -o PidFile=~/.ssh/sshd.pid \
+    -o AuthorizedKeysFile="$HOME/.ssh/authorized_keys" \
+    -o PidFile="$HOME/.ssh/sshd.pid" \
     -o SetEnv="PATH=$IDX_HELPER_PATH" \
     -o SetEnv="BASH_ENV=$HOME/.ssh/idx_ssh_env" \
     > ~/.ssh/sshd.log 2>&1 &
 
 SSHD_PID=$!
+echo "$SSHD_PID" > ~/.ssh/sshd.pid
 echo "[tunnel] sshd started, PID: $SSHD_PID"
 sleep 2
 
-# 6. Start SSH reverse tunnel
-echo "[tunnel] Starting SSH reverse tunnel to $RELAY_HOST:$RELAY_PORT..."
-nohup ssh -N -R "127.0.0.1:$REMOTE_PORT:127.0.0.1:$LOCAL_SSH_PORT" \
+# 6. Start sish TCP alias reverse tunnel
+echo "[tunnel] Starting sish alias $SISH_ALIAS:22 -> 127.0.0.1:$LOCAL_SSH_PORT via $SISH_HOST:$SISH_PORT..."
+nohup ssh -N -R "$SISH_ALIAS:22:127.0.0.1:$LOCAL_SSH_PORT" \
     -i ~/.ssh/idx_relay_ed25519 \
     -o StrictHostKeyChecking=no \
     -o UserKnownHostsFile=/dev/null \
     -o ServerAliveInterval=30 \
     -o ServerAliveCountMax=3 \
     -o ExitOnForwardFailure=yes \
-    -p "$RELAY_PORT" \
-    "$RELAY_USER@$RELAY_HOST" \
-    > ~/.ssh/tunnel.log 2>&1 &
+    -p "$SISH_PORT" \
+    "$SISH_USER@$SISH_HOST" \
+    > ~/.ssh/sish.log 2>&1 &
 
-TUNNEL_PID=$!
-echo "$TUNNEL_PID" > ~/.ssh/tunnel.pid
-echo "[tunnel] SSH tunnel started, PID: $TUNNEL_PID"
+SISH_PID=$!
+echo "$SISH_PID" > ~/.ssh/sish.pid
+echo "[tunnel] sish tunnel started, PID: $SISH_PID"
 sleep 3
 
-# 7. Verify
-if ps -p $SSHD_PID > /dev/null 2>&1; then
+# 7. Verify local processes
+if ps -p "$SSHD_PID" > /dev/null 2>&1; then
     echo "[tunnel] ✅ sshd is running"
 else
     echo "[tunnel] ❌ sshd failed to start"
     cat ~/.ssh/sshd.log
+    exit 1
 fi
 
-if ps -p $TUNNEL_PID > /dev/null 2>&1; then
-    echo "[tunnel] ✅ SSH tunnel is running"
+if ps -p "$SISH_PID" > /dev/null 2>&1; then
+    echo "[tunnel] ✅ sish alias tunnel is running"
 else
-    echo "[tunnel] ❌ SSH tunnel failed to start"
-    cat ~/.ssh/tunnel.log
+    echo "[tunnel] ❌ sish alias tunnel failed to start"
+    cat ~/.ssh/sish.log
+    exit 1
 fi
 
 echo "[tunnel] Setup complete!"
-echo "[tunnel] Relay: $RELAY_HOST:$RELAY_PORT -> Remote port: $REMOTE_PORT"
+echo "[tunnel] sish: $SISH_USER@$SISH_HOST:$SISH_PORT -> alias $SISH_ALIAS:22 -> 127.0.0.1:$LOCAL_SSH_PORT"
+printf '%s\n' "[tunnel] client: ssh -o 'ProxyCommand=ssh -i relay_ed25519 -p $SISH_PORT -W %h:%p $SISH_USER@$SISH_HOST' user@$SISH_ALIAS"
