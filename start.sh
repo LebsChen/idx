@@ -1,7 +1,7 @@
 #!/bin/sh
 set -e
 
-SISH_HOST="${SISH_HOST:-117.31.178.161}"
+SISH_HOST="${SISH_HOST:-idx.yaoshen.de5.net}"
 SISH_PORT="${SISH_PORT:-2022}"
 SISH_USER="${SISH_USER:-user}"
 # Derive workspace alias from IDX environment
